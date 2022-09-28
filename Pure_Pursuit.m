@@ -16,9 +16,9 @@ Ld0 = 2;            % Ld0 预瞄距离的下限值
 dt = 0.1;           % 时间间隔，单位：s
 L = 2.9;            % 车辆轴距，单位：m
 
-% 纯跟踪本质是一个P控制器，取消下面两行注释则使用PI控制
-% Ki = 0.2;
-% Err_integ = 0;
+% 纯跟踪本质是一个P控制器
+Ki = 0.0;           % 积分调节系数
+Err_integ = 0;
 
 
 % 绘制参考轨迹
@@ -62,12 +62,10 @@ while idx < sizeOfRefPos
     % 计算控制量
     [delta, latError]  = pure_pursuit_control(lookaheadPoint(end,:), idx, pos, heading, v, RefPos,refHeading, Kv, Ld0,L);
 
-    if exist("Ki")
-        % 前轮转角 PI控制
-        Err_integ = Err_integ + latError * dt;
-        delta = delta - Ki * Err_integ;
-    end
-
+    % 前轮转角 PI控制
+    Err_integ = Err_integ + latError * dt;
+    delta = delta - Ki * Err_integ;
+    
     % 如果误差过大，退出循迹
     if abs(latError) > 3
         disp('误差过大，退出程序!\n')
