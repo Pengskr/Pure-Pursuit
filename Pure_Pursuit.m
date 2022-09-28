@@ -17,9 +17,8 @@ dt = 0.1;           % 时间间隔，单位：s
 L = 2.9;            % 车辆轴距，单位：m
 
 % 纯跟踪本质是一个P控制器
-Ki = 0.0;           % 积分调节系数
+Ki = 0.2;           % 积分调节系数
 Err_integ = 0;
-
 
 % 绘制参考轨迹
 figure
@@ -64,7 +63,7 @@ while idx < sizeOfRefPos
 
     % 前轮转角 PI控制
     Err_integ = Err_integ + latError * dt;
-    delta = delta - Ki * Err_integ;
+    delta = delta + Ki * Err_integ;
     
     % 如果误差过大，退出循迹
     if abs(latError) > 3
@@ -150,8 +149,8 @@ function [delta,latError] = pure_pursuit_control(lookaheadPoint,idx,pos, heading
     Ld = Kv*v + Ld0;
 
     % 求位置、航向角的误差
-    x_error  = pos(1) - Point_temp(1,1);
-    y_error = pos(2) - Point_temp(1,2);
+    x_error  = Point_temp(1,1) - pos(1);
+    y_error = Point_temp(1,2) - pos(2);
     heading_r = refHeading(idx);
     % 根据百度Apolo，计算横向误差
 %     latError = y_error*cos(heading_r) - x_error*sin(heading_r);
