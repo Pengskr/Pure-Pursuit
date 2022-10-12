@@ -4,8 +4,8 @@
 clc
 clear
 close all
-load path_S.mat
-% load path_Circle.mat
+% load path_S.mat
+load path_Circle.mat
 % load path_Circle_clockwise.mat
 
 %% 相关参数定义
@@ -108,6 +108,7 @@ end
 i = size(pos_actual,1);
 scatter(pos_actual(i,1), pos_actual(i,2), 200, '.r');    % 实际位置(x,y)
 quiver(pos_actual(i,1), pos_actual(i,2), cos(heading_actual(i,:)), sin(heading_actual(i,:)), 0.5, 'm', 'LineWidth', 1);     % 实际航向
+quiver(pos_actual(i,1), pos_actual(i,2), cos(heading_actual(i,:)+delta_actual(i,:)), sin(heading_actual(i,:)+delta_actual(i,:)),0.2, 'k', 'LineWidth', 1);
 pause(0.01);
 legend('参考车辆轨迹', '实际行驶轨迹', '实际航向')
 hold off
@@ -126,6 +127,14 @@ subplot(1, 2, 2)
 plot(delta_actual(:,1));
 grid on; grid minor; title('前轮转角');
 
+% 航向角
+figure
+subplot(1, 2, 1)
+plot(refHeading);
+grid on; grid minor; title('参考航向角');
+subplot(1, 2, 2)
+plot(heading_actual);
+grid on; grid minor; title('实际航向角');
 
 % 保存
 save latError_PP.mat latError_PP
@@ -180,5 +189,9 @@ function [pos_new, heading_new, v_new] = updateState(a, pos_old, heading_old, v_
     pos_new(1) = pos_old(1) + v_old*cos(heading_old)*dt;
     pos_new(2) =  pos_old(2) + v_old*sin(heading_old)*dt;
     heading_new=  heading_old + v_old*dt*tan(delta)/wheelbase;
+    % 物理上航向角的绝对值小于等于180，需要对数学上算出的航向角作修正使其具有物理意义
+    if abs(heading_new)>pi
+        heading_new = (heading_new>0)*(heading_new-2*pi) + (heading_new<0)*(heading_new+2*pi);
+    end 
     v_new =  v_old + a*dt;
 end
