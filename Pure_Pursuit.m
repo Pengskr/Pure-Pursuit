@@ -4,8 +4,9 @@
 clc
 clear
 close all
-% load path_S.mat
-load path_Circle.mat
+load path_S.mat
+% load path_Circle.mat
+% load path_Circle_clockwise.mat
 
 %% 相关参数定义
 RefPos = path;
@@ -17,7 +18,7 @@ dt = 0.1;           % 时间间隔，单位：s
 L = 2.9;            % 车辆轴距，单位：m
 
 % 纯跟踪本质是一个P控制器
-Ki = 0.2;           % 积分调节系数
+Ki = 0.5;           % 积分调节系数
 Err_integ = 0;
 
 % 绘制参考轨迹
@@ -45,6 +46,7 @@ heading = refHeading(1) + 0.02;
 % 将初始状态存入实际状态数组中
 pos_actual = pos;
 heading_actual = heading;
+delta_actual = 0;
 v_actual = v;
 
 %% 主程序
@@ -54,7 +56,7 @@ idx = 1;
 latError_PP = [];
 sizeOfRefPos = size(RefPos, 1);
 lookaheadPoint = [0, 0;];
-while idx < sizeOfRefPos
+while idx < sizeOfRefPos-1  % 由于diff_x，diff_y计算方式的特殊性，不考虑最后一个参考点
     % 寻找预瞄点
     [lookaheadPoint(end+1,:),idx] = findLookaheadPoint(pos, v, RefPos, Kv, Ld0);
 
@@ -78,13 +80,15 @@ while idx < sizeOfRefPos
     [pos, heading, v] = updateState(a, pos, heading, v, delta, L, dt);
     
     % 保存每一步的实际量
-    pos_actual(end+1,:) = pos;
-    heading_actual(end+1,:) = heading;
-    v_actual(end+1,:) = v;
-    latError_PP(end+1,:) = [idx, latError];
+    pos_actual(end+1, :) = pos;
+    heading_actual(end+1, :) = heading;
+    delta_actual(end+1, :) = delta;
+    v_actual(end+1, :) = v;
+    latError_PP(end+1, :) = [idx, latError];
 end
 
 %% 画图
+% 跟踪轨迹
 for i = 1:size(pos_actual,1)-1
     scatter(pos_actual(i,1), pos_actual(i,2), 200, '.r');    % 实际位置(x,y)
     % 绘制预瞄点
@@ -94,10 +98,12 @@ for i = 1:size(pos_actual,1)-1
     f2 = scatter(lookaheadPoint(i+1,1), lookaheadPoint(i+1,2), 100, '.g');
     % 实际航向
     quiver(pos_actual(i,1), pos_actual(i,2), cos(heading_actual(i,:)), sin(heading_actual(i,:)),0.5, 'm', 'LineWidth', 1);     % 实际航向
+    % 前轮转角
+    quiver(pos_actual(i,1), pos_actual(i,2), cos(heading_actual(i,:)+delta_actual(i,:)), sin(heading_actual(i,:)+delta_actual(i,:)),0.2, 'k', 'LineWidth', 1);
+
     pause(0.01);
     delete(f1), delete(f2)
 end
-
 % 最后一个轨迹点没有预瞄点
 i = size(pos_actual,1);
 scatter(pos_actual(i,1), pos_actual(i,2), 200, '.r');    % 实际位置(x,y)
@@ -106,11 +112,20 @@ pause(0.01);
 legend('参考车辆轨迹', '实际行驶轨迹', '实际航向')
 hold off
 
-figure, plot(latError_PP(:, 2));
+% 横向误差
+figure
+subplot(1, 2, 1)
+plot(latError_PP(:, 2));
 grid on;
 grid minor
 title("横向误差")
 ylabel('横向误差 / m');
+
+% 前轮转角
+subplot(1, 2, 2)
+plot(delta_actual(:,1));
+grid on; grid minor; title('前轮转角');
+
 
 % 保存
 save latError_PP.mat latError_PP
@@ -121,7 +136,7 @@ save latError_PP.mat latError_PP
 function [lookaheadPoint,idx_target]=findLookaheadPoint(pos, v, RefPos, Kv, Ld0)
     % 找到距离当前位置最近的一个参考轨迹点的序号
     sizeOfRefPos = size(RefPos,1);
-    for i = 1:sizeOfRefPos
+    for i = 1:sizeOfRefPos-1
         dist(i,1) = norm(RefPos(i,:) - pos);   
     end
     [~,idx] = min(dist); 
@@ -154,10 +169,11 @@ function [delta,latError] = pure_pursuit_control(lookaheadPoint,idx,pos, heading
     heading_r = refHeading(idx);
     % 根据百度Apolo，计算横向误差
 %     latError = y_error*cos(heading_r) - x_error*sin(heading_r);
-    latError = y_error*cos(heading) - x_error*sin(heading); % 应当使用实际航向角计算横向误差
+    latError = y_error*cos(heading) - x_error*sin(heading);     % 应当使用实际航向角计算横向误差
     
     % 前轮转角 P控制
-    delta = atan2(2*L*sin(alpha), Ld);  % 横向误差可用Ld,sina表示
+%     delta = atan2(2*L*sin(alpha), Ld);  % 横向误差可用Ld,sina表示
+    delta = atan2(2*L*latError, Ld^2);
 end
 
 function [pos_new, heading_new, v_new] = updateState(a, pos_old, heading_old, v_old,delta,wheelbase, dt)
